@@ -76,7 +76,7 @@ namespace RN
 			// ptr: Pointer to data.
 			// sz: Size of data [bytes].
 			// Returns true on success of false on failure.
-			bool TX(const char *ptr, size_t sz);
+			bool TX(const void *ptr, size_t sz);
 
 			// Send data through Comm.
 			// ptr1: Pointer to first segment of TX data.
@@ -84,14 +84,14 @@ namespace RN
 			// ptr2: Pointer to second segment of TX data.
 			// sz2: Size of second data segment [byte].
 			// Returns true on success of false on failure.
-			bool TX(const char *ptr1, size_t sz1, const char *ptr2, size_t sz2);
+			bool TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2);
 
 
 			// Receive data through Comm. Data stream is captured until CR LF characters are received.
 			// ptr: Pointer to buffer where received data will be stored as null terminated string without CR LF at the end.
 			// sz: Size of pDst buffer. If size of received data is larger than szDst, data will not be stored at pDst.
-			// Returns number of data successfully read [bytes] or -1 on failure.
-			ssize_t RX(char *ptr, size_t sz);
+			// Returns number of data successfully read [bytes] or 0 on failure.
+			size_t RX(void *ptr, size_t sz);
 
 			// Send mac pause command to pause LORAWAN stack.
 			// Returns time [milisecond] on success, 0 on failure.
@@ -217,7 +217,7 @@ namespace RN
 			// ptr: Pointer to data which will be read.
 			// sz: Size of data which will be read.
 			// Returns size of received data [bytes] or -1 on failure.
-			ssize_t _read(char *ptr, size_t sz);
+			size_t _read(char *ptr, size_t sz);
 
 			// Translate decimal data into hex data and store it inside _pBuf.
 			// pIn: Pointer to input buffer which will be translated.
@@ -242,6 +242,8 @@ namespace RN
 			char *_pRX;		// Temporary internal RX buffer.
 
 			// Commands used for internal communication with RN2483 device.
+			static const char _DNULL[];
+			static const char _UVER[];
 			static const char _MACPAUSE[];
 			static const char _MACRESUME[];
 			static const char _OK[];

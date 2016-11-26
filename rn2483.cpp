@@ -6,6 +6,8 @@ using namespace RN;
 
 const size_t RN2483::_szBuf = 1024;
 
+const char RN2483::_DNULL[] = "\0\0";
+const char RN2483::_UVER[] = "Usys get ver\r\n";
 const char RN2483::_MACPAUSE[] = "mac pause\r\n";
 const char RN2483::_MACRESUME[] = "mac resume\r\n";
 const char RN2483::_OK[] = "ok\r\n";
@@ -67,10 +69,13 @@ bool RN2483::Init()
 	
 	int rc;
 	struct termios options;
-	options.c_iflag = IGNBRK | IGNPAR;
+	memset (&options, 0, sizeof(options));
+	options.c_iflag = IGNPAR;
 	options.c_oflag = 0;
 	options.c_cflag = CS8 | CLOCAL | CREAD;
 	options.c_lflag = ICANON;
+	options.c_cc[VEOL] = '\n';
+
 	rc = cfsetspeed(&options, B57600);
 	if (rc != 0)
 	{
@@ -89,27 +94,27 @@ bool RN2483::Init()
 		return false;
 	}
 
-	// _write("\0", sizeof("\0") - 1);
+	_write(_DNULL, sizeof(_DNULL) - 1);
 
-	// rc = cfsetspeed(&options, B230400);
-	// if (rc != 0)
-	// {
-	// 	return false;
-	// }
+	rc = cfsetspeed(&options, 57600);
+	if (rc != 0)
+	{
+		return false;
+	}
 
-	// rc = tcflush(_fd, TCIOFLUSH);
-	// if (rc != 0)
-	// {
-	// 	return false;
-	// }
+	rc = tcflush(_fd, TCIOFLUSH);
+	if (rc != 0)
+	{
+		return false;
+	}
 
-	// rc = tcsetattr(_fd, TCSANOW, &options);
-	// if (rc != 0)
-	// {
-	// 	return false;
-	// }
+	rc = tcsetattr(_fd, TCSANOW, &options);
+	if (rc != 0)
+	{
+		return false;
+	}
 
-	_write("Usys get ver\r\n", sizeof("Usys get ver\r\n") - 1);
+	_write(_UVER, sizeof(_UVER) - 1);
 	_read(_pRX, _szBuf);
 	// reset device
 	bool rst = Reset();
@@ -270,10 +275,10 @@ bool RN2483::Init()
 	return true;
 }
 
-bool RN2483::TX(const char *ptr, size_t sz)
+bool RN2483::TX(const void *ptr, size_t sz)
 {
 	// translate data
-	size_t szHex = _d2hex(ptr, sz);
+	size_t szHex = _d2hex(static_cast<const char*>(ptr), sz);
 
 	// transmit data
 	bool okWrite = _write(_TXS, sizeof(_TXS) - 1);
@@ -294,8 +299,8 @@ bool RN2483::TX(const char *ptr, size_t sz)
 		return false;
 	}
 	// receive ok status
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -319,7 +324,7 @@ bool RN2483::TX(const char *ptr, size_t sz)
 	return true;
 }
 
-bool RN2483::TX(const char *ptr1, size_t sz1, const char *ptr2, size_t sz2)
+bool RN2483::TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2)
 {
 	// transmit data
 	bool okWrite = _write(_TXS, sizeof(_TXS) - 1);
@@ -329,7 +334,7 @@ bool RN2483::TX(const char *ptr1, size_t sz1, const char *ptr2, size_t sz2)
 	}
 	
 	// translate and send first data segment
-	size_t szHex = _d2hex(ptr1, sz1);
+	size_t szHex = _d2hex(static_cast<const char*>(ptr1), sz1);
 	okWrite = _write(_pTX, szHex);
 	if (!okWrite)
 	{
@@ -337,7 +342,7 @@ bool RN2483::TX(const char *ptr1, size_t sz1, const char *ptr2, size_t sz2)
 	}
 
 	// translate and send second data segment
-	szHex = _d2hex(ptr2, sz2);
+	szHex = _d2hex(static_cast<const char*>(ptr2), sz2);
 	okWrite = _write(_pTX, szHex);
 	if (!okWrite)
 	{
@@ -350,8 +355,8 @@ bool RN2483::TX(const char *ptr1, size_t sz1, const char *ptr2, size_t sz2)
 		return false;
 	}
 	// receive ok status
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -375,42 +380,46 @@ bool RN2483::TX(const char *ptr1, size_t sz1, const char *ptr2, size_t sz2)
 	return true;
 }
 
-ssize_t RN2483::RX(char *pDst, size_t szDst)
+size_t RN2483::RX(void *pDst, size_t szDst)
 {
 	bool okWrite = _write(_RX, sizeof(_RX) - 1);
 	if (!okWrite)
 	{
-		return -1;
+		return 0;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
-		return -1;
+		return 0;
 	}
 	_pRX[szRead] = '\0';
 	if (strcmp(_pRX, _OK) != 0)
 	{
-		return -1;
+		return 0;
 	}
 	szRead = _read(_pRX, _szBuf);
 	if (szRead <= 0)
 	{
-		return -1;
+		return 0;
 	}
 	_pRX[szRead] = '\0';
 
 	// if data is received
 	if (strncmp(_pRX, _RXR, sizeof(_RXR) - 1) == 0)
 	{
-		return _hex2d(_pRX + sizeof(_RXR) - 1, szRead - (sizeof(_RXR) - 1) - 2, pDst, szDst);
+		return _hex2d(
+			_pRX + sizeof(_RXR) - 1,
+			szRead - (sizeof(_RXR) - 1) - 2,
+			static_cast<char*>(pDst),
+			szDst);
 	}
 	else if (strncmp(_pRX, _RXE, sizeof(_RXE) - 1) == 0)
 	{
 		return 0;
 	}
 
-	return -1;
+	return 0;
 }
 
 unsigned int RN2483::SetMACPause()
@@ -421,8 +430,8 @@ unsigned int RN2483::SetMACPause()
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -447,8 +456,8 @@ bool RN2483::SetMACResume()
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -470,8 +479,8 @@ bool RN2483::Reset()
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -500,8 +509,8 @@ bool RN2483::SetMod(Mod modulation)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -522,8 +531,8 @@ bool RN2483::GetMod(Mod *pModulation)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -563,8 +572,8 @@ bool RN2483::SetFreq(unsigned int freq)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -586,8 +595,8 @@ bool RN2483::GetFreq(unsigned int *pFreq)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -622,8 +631,8 @@ bool RN2483::SetPower(char power)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -645,8 +654,8 @@ bool RN2483::GetPower(char *pPower)
 		return false;
 	}
 	
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -683,8 +692,8 @@ bool RN2483::SetBitRate(unsigned int rate)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -706,8 +715,8 @@ bool RN2483::GetBitRate(unsigned int *pRate)
 		return false;
 	}
 	
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -749,8 +758,8 @@ bool RN2483::SetDataShaping(DataShaping param)
 			break;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -772,8 +781,8 @@ bool RN2483::GetDataShaping(DataShaping *pParam)
 		return false;
 	}
 	
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -822,8 +831,8 @@ bool RN2483::SetPreambleLength(unsigned int length)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -845,8 +854,8 @@ bool RN2483::GetPreambleLength(unsigned int *pLength)
 		return false;
 	}
 	
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -880,8 +889,8 @@ bool RN2483::SetCRC(bool state)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -902,8 +911,8 @@ bool RN2483::GetCRC(bool *pState)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -1018,8 +1027,8 @@ bool RN2483::SetRXBW(RXBandWidth param)
 			break;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -1041,8 +1050,8 @@ bool RN2483::GetRXBW(RXBandWidth *pParam)
 		return false;
 	}
 	
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -1159,8 +1168,8 @@ bool RN2483::SetWDT(unsigned int timeOut)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -1182,8 +1191,8 @@ bool RN2483::GetWDT(unsigned int *pTimeOut)
 		return false;
 	}
 	
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -1221,8 +1230,8 @@ bool RN2483::SetSync(const char *pSync)
 		return false;
 	}
 
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -1244,8 +1253,8 @@ bool RN2483::GetSync(char *pSync, size_t szMax)
 		return false;
 	}
 	
-	ssize_t szRead = _read(_pRX, _szBuf);
-	if (szRead <= 0)
+	size_t szRead = _read(_pRX, _szBuf);
+	if (szRead == 0)
 	{
 		return false;
 	}
@@ -1266,7 +1275,7 @@ size_t RN2483::_d2hex(const char *pIn, size_t szIn)
 {
 	if (szIn * 2 > _szBuf)
 	{
-		return -1;
+		return 0;
 	}
 
 	short *ptr = reinterpret_cast<short*>(_pTX);
@@ -1282,7 +1291,7 @@ size_t RN2483::_hex2d(const char *pIn, size_t szIn, char *pOut, size_t szOut)
 {
 	if (szIn / 2 + szIn % 2 > szOut)
 	{
-		return -1;
+		return 0;
 	}
 
 	for (size_t i = 0; i < szIn; i += 2)
@@ -1295,8 +1304,8 @@ size_t RN2483::_hex2d(const char *pIn, size_t szIn, char *pOut, size_t szOut)
 
 bool RN2483::_write(const char *ptr, size_t sz)
 {
-	ssize_t szWrite = write(_fd, ptr, sz);
-	if (szWrite == -1)
+	size_t szWrite = write(_fd, ptr, sz);
+	if (szWrite == 0)
 	{
 		return false;
 	}
@@ -1307,27 +1316,7 @@ bool RN2483::_write(const char *ptr, size_t sz)
 	return true;
 }
 
-ssize_t RN2483::_read(char *ptr, size_t sz)
+size_t RN2483::_read(char *ptr, size_t sz)
 {
-	ssize_t szRead = read(_fd, ptr, sz);
-	if (szRead == -1)
-	{
-		return szRead;
-	}
-	
-	while (ptr[szRead - 2] != '\r' && ptr[szRead - 1] != '\n')
-	{
-		if (sz - szRead <= 0)
-		{
-			return -1;
-		}
-		size_t tmpSzRead = read(_fd, ptr + szRead, sz - szRead);
-		if (tmpSzRead == -1)
-		{
-			return tmpSzRead;
-		}
-		szRead += tmpSzRead;
-	}
-
-	return szRead;
+	return read(_fd, ptr, sz);
 }
