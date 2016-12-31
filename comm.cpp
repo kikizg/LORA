@@ -175,7 +175,7 @@ bool Comm::Send(const void *pData, size_t szData, bool ack)
 	
 	// send part packets
 	
-	do
+	while (left)
 	{
 		_TXPart.Size = left < _szDataMaxPart ? left : _szDataMaxPart;
 		_TXPart.SegId++;
@@ -192,7 +192,7 @@ bool Comm::Send(const void *pData, size_t szData, bool ack)
 
 		ptr += _TXPart.Size;
 		left -= _TXPart.Size;
-	} while (left);
+	}
 
 	// end communication and send empty packet if ack is requested
 	

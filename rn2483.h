@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <termios.h>
 
-#include "translation.h"
+#include "tools.h"
 
 using namespace std;
 
@@ -218,20 +218,6 @@ namespace RN
 			// sz: Size of data which will be read.
 			// Returns size of received data [bytes] or -1 on failure.
 			size_t _read(char *ptr, size_t sz);
-
-			// Translate decimal data into hex data and store it inside _pBuf.
-			// pIn: Pointer to input buffer which will be translated.
-			// szIn: Size of data which needs to be translated [bytes].
-			// Returns size of translated data [bytes].
-			size_t _d2hex(const char *pIn, size_t szIn);
-
-			// Translate hex data into decimal data and store it inside _pBuf.
-			// pIn: Pointer to input buffer which will be translated.
-			// szIn: Size of data which needs to be translated [bytes].
-			// pOut: Pointer to output buffer where translated data will be stored.
-			// szOut: Size of buffer where translated data will be stored [bytes].
-			// Returns size of translated data [bytes].
-			size_t _hex2d(const char *pIn, size_t szIn, char *pOut, size_t szOut);
 
 			static const
 			size_t _szBuf;		// Max size of frame (bytes to be send) [bytes].

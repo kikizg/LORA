@@ -37,7 +37,7 @@ bool UART::Init()
 	options.c_lflag = ICANON;
 	options.c_cc[VEOL] = '\n';
 
-	rc = cfsetspeed(&options, B115200);
+	rc = cfsetspeed(&options, B57600);
 	if (rc != 0)
 	{
 		return false;
@@ -63,7 +63,7 @@ bool UART::Init()
 bool UART::TX(const void *ptr, size_t sz)
 {
 	// translate data
-	size_t szHex = _d2hex(static_cast<const unsigned char*>(ptr), sz);
+	size_t szHex = D2H(static_cast<const char*>(ptr), sz, reinterpret_cast<char*>(_pTX));
 
 	// transmit data
 	bool okWrite = _write(_pTX, szHex);
@@ -85,7 +85,7 @@ bool UART::TX(const void *ptr, size_t sz)
 bool UART::TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2)
 {
 	// translate and send first data segment
-	size_t szHex = _d2hex(static_cast<const unsigned char*>(ptr1), sz1);
+	size_t szHex = D2H(static_cast<const char*>(ptr1), sz1, reinterpret_cast<char*>(_pTX));
 
 	bool okWrite = _write(_pTX, szHex);
 	if (!okWrite)
@@ -94,7 +94,7 @@ bool UART::TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2)
 	}
 
 	// translate and send second data segment
-	szHex = _d2hex(static_cast<const unsigned char*>(ptr2), sz2);
+	szHex = D2H(static_cast<const char*>(ptr2), sz2, reinterpret_cast<char*>(_pTX));
 	okWrite = _write(_pTX, szHex);
 	if (!okWrite)
 	{
@@ -121,40 +121,9 @@ size_t UART::RX(void *pDst, size_t szDst)
 	_pRX[szRead] = '\0';
 
 	// if data is received
-	size_t szHex = _hex2d(_pRX, szRead - 1, static_cast<unsigned char*>(pDst), szDst);
+	size_t szHex = H2D(reinterpret_cast<const char*>(_pRX), szRead - 1, static_cast<char*>(pDst), szDst);
 
 	return szHex;
-}
-
-size_t UART::_d2hex(const unsigned char *pIn, size_t szIn)
-{
-	if (szIn * 2 > _szBuf)
-	{
-		return 0;
-	}
-
-	short *ptr = reinterpret_cast<short*>(_pTX);
-	for (size_t i = 0; i < szIn; i++)
-	{
-		ptr[i] = RN_D2HEX[pIn[i]];
-	}
-
-	return szIn * 2;
-}
-
-size_t UART::_hex2d(const unsigned char *pIn, size_t szIn, unsigned char *pOut, size_t szOut)
-{
-	if (szIn / 2 + szIn % 2 > szOut)
-	{
-		return 0;
-	}
-
-	for (size_t i = 0; i < szIn; i += 2)
-	{
-		pOut[i / 2] = RN_HEX2D[pIn[i]] << 4 | RN_HEX2D[pIn[i + 1]];
-	}
-
-	return szIn / 2 + szIn % 2;
 }
 
 bool UART::_write(const unsigned char *ptr, size_t sz)

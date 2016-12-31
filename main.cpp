@@ -49,12 +49,24 @@ int main(int argc, char **argv, char **envp)
  		c.Init();
  
  		PacketInfo info;
- 		info.LocalId = 0xaa;
- 		info.RemoteId = 0xcc;
- 		info.Port = 0x20;
+ 		info.LocalId = static_cast<unsigned char>(vm["localid"].as<int>());
+ 		info.RemoteId = static_cast<unsigned char>(vm["remoteid"].as<int>());
+ 		info.Port = static_cast<unsigned char>(vm["port"].as<int>());
 
  		c.SetInfo(&info);
-		c.SetCrypt("key.pub", "key");
+
+		bool encryptPub = false;
+		bool encryptPvt = false;
+
+		if (vm.count("publickey") && vm.count("privatekey"))
+		{
+			c.SetCrypt(
+				vm["publickey"].as<string>().data(),
+				vm["privatekey"].as<string>().data());
+
+			encryptPub = vm.count("encryptpub");
+			encryptPvt = vm.count("encryptpvt");
+		}
 
 		ifstream ifs;
 
@@ -72,7 +84,7 @@ int main(int argc, char **argv, char **envp)
 		
 		istream &is = vm.count("input") ? ifs : cin;
 
-		size_t szBuf = c.GetSzDecryptBuf();
+		size_t szBuf = encryptPub || encryptPvt ? c.GetSzDecryptBuf() : c.GetMaxSz();
 		size_t szData = szBuf - 1;
 		char *pBuf = new char[szBuf];
 		char *pData = pBuf + 1;
@@ -80,7 +92,6 @@ int main(int argc, char **argv, char **envp)
 		*pBuf = is.good();
 
 		size_t sent = 0;
-
 
 #ifdef _DEBUG
 		if (total)
@@ -91,6 +102,8 @@ int main(int argc, char **argv, char **envp)
 		{
  			cout << GREEN "[OK]" WHITE " DATA SEND START\n";
 		}
+
+		Clock _clk;
 #endif
 
 		bool okSend;
@@ -100,9 +113,19 @@ int main(int argc, char **argv, char **envp)
 			*pBuf = is.good();
 			size_t read = is.gcount();
 
-			// okSend = c.Send(pBuf, read + 1, true);
-			okSend = c.EncryptPubSend(pBuf, read + 1, true);
-			// okSend = c.EncryptPvtSend(pBuf, read + 1, true);
+			if (encryptPub)
+			{
+				okSend = c.EncryptPubSend(pBuf, read + 1, true);
+			}
+			else if (encryptPvt)
+			{
+				okSend = c.EncryptPvtSend(pBuf, read + 1, true);
+			}
+			else
+			{
+				okSend = c.Send(pBuf, read + 1, true);
+			}
+
 			if (!okSend)
 			{
 #ifdef _DEBUG
@@ -150,6 +173,9 @@ int main(int argc, char **argv, char **envp)
 		{
 			printf(" DATA SEND END size(%u)\n", sent);
 		}
+
+		double time = _clk.Now();
+		printf("Data sent in %f [second] with mean bandwidth %u\n", time, static_cast<unsigned int>(static_cast<double>(sent) / time));
 #endif
 
 		delete[] pBuf;
@@ -160,14 +186,26 @@ int main(int argc, char **argv, char **envp)
  		c.Init();
  
  		PacketInfo info;
- 		info.LocalId = 0xcc;
- 		info.RemoteId = 0xaa;
- 		info.Port = 0x20;
+ 		info.LocalId = static_cast<unsigned char>(vm["localid"].as<int>());
+ 		info.RemoteId = static_cast<unsigned char>(vm["remoteid"].as<int>());
+ 		info.Port = static_cast<unsigned char>(vm["port"].as<int>());
 
  		c.SetInfo(&info);
-		c.SetCrypt("key.pub", "key");
 
-		size_t szBuf = c.GetSzDecryptBuf();
+		bool decryptPub = false;
+		bool decryptPvt = false;
+
+		if (vm.count("publickey") && vm.count("privatekey"))
+		{
+			c.SetCrypt(
+				vm["publickey"].as<string>().data(),
+				vm["privatekey"].as<string>().data());
+
+			decryptPub = vm.count("decryptpub");
+			decryptPvt = vm.count("decryptpvt");
+		}
+
+		size_t szBuf = decryptPub || decryptPvt ? c.GetSzDecryptBuf() : c.GetMaxSz();
 		size_t szData = szBuf - 1;
 		char *pBuf = new char[szBuf];
 		char *pData = pBuf + 1;
@@ -183,6 +221,8 @@ int main(int argc, char **argv, char **envp)
 
 #ifdef _DEBUG
  		cout << GREEN "[OK]" WHITE " DATA RECEIVE START\n";
+
+		Clock _clk;
 #endif
 
 		size_t received = 0;
@@ -191,9 +231,20 @@ int main(int argc, char **argv, char **envp)
 		do
 		{
 			size_t szRX;
-			okRX = c.ReceiveDecryptPvt(pBuf, szBuf, &szRX);
-			// okRX = c.ReceiveDecryptPub(pBuf, szBuf, &szRX);
-			// okRX = c.Receive(pBuf, szBuf, &szRX);
+
+			if (decryptPub)
+			{
+				okRX = c.ReceiveDecryptPub(pBuf, szBuf, &szRX);
+			}
+			else if (decryptPvt)
+			{
+				okRX = c.ReceiveDecryptPvt(pBuf, szBuf, &szRX);
+			}
+			else
+			{
+				okRX = c.Receive(pBuf, szBuf, &szRX);
+			}
+
 			if (!okRX || szRX < 2)
 			{
 #ifdef _DEBUG
@@ -221,6 +272,9 @@ int main(int argc, char **argv, char **envp)
 			cout << RED "[ERROR]" WHITE;
 		}
 		printf(" DATA RECEIVE END size(%u)\n", received);
+
+		double time = _clk.Now();
+		printf("Data sent in %f [second] with mean bandwidth %u\n", time, static_cast<unsigned int>(static_cast<double>(received) / time));
 #endif
 
 		delete[] pBuf;
@@ -304,9 +358,12 @@ void parse_args(int argc, char **argv, po::options_description &optDesc, po::var
 		("publickey,k", po::value<string>(), "Public key to use with RSA encryption")
 		("privatekey,i", po::value<string>(), "Private key to use with RSA encryption")
 		("genkey,g", "Generate public and private RSA key")
-		("keybits,b", po::value<int>(), "Key size [bit]")
+		("keybits,b", po::value<int>()->default_value(1024), "Key size [bit]")
 		("input,f", po::value<string>(), "Input file name which will be sent")
 		("output,o", po::value<string>(), "Output file name into which received data will be stored")
+		("localid", po::value<int>()->default_value(20), "Local id number")
+		("remoteid", po::value<int>()->default_value(21), "Id number of remote node")
+		("port", po::value<int>()->default_value(15), "Port number used in communication")
 		("encryptpub", "Encrypt data with public key")
 		("encryptpvt", "Encrypt data with private key")
 		("decryptpub", "Decrypt data with public key")

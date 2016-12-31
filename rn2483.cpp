@@ -278,7 +278,7 @@ bool RN2483::Init()
 bool RN2483::TX(const void *ptr, size_t sz)
 {
 	// translate data
-	size_t szHex = _d2hex(static_cast<const char*>(ptr), sz);
+	size_t szHex = D2H(static_cast<const char*>(ptr), sz, _pTX);
 
 	// transmit data
 	bool okWrite = _write(_TXS, sizeof(_TXS) - 1);
@@ -305,7 +305,7 @@ bool RN2483::TX(const void *ptr, size_t sz)
 		return false;
 	}
 	_pRX[szRead] = '\0';
-	if (strcmp(_pRX, _OK) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -316,7 +316,7 @@ bool RN2483::TX(const void *ptr, size_t sz)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strcmp(_pRX, _TXOK) != 0)
+	if (bcmp(_pRX, _TXOK) != 0)
 	{
 		return false;
 	}
@@ -334,7 +334,7 @@ bool RN2483::TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2)
 	}
 	
 	// translate and send first data segment
-	size_t szHex = _d2hex(static_cast<const char*>(ptr1), sz1);
+	size_t szHex = D2H(static_cast<const char*>(ptr1), sz1, _pTX);
 	okWrite = _write(_pTX, szHex);
 	if (!okWrite)
 	{
@@ -342,7 +342,7 @@ bool RN2483::TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2)
 	}
 
 	// translate and send second data segment
-	szHex = _d2hex(static_cast<const char*>(ptr2), sz2);
+	szHex = D2H(static_cast<const char*>(ptr2), sz2, _pTX);
 	okWrite = _write(_pTX, szHex);
 	if (!okWrite)
 	{
@@ -361,7 +361,7 @@ bool RN2483::TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2)
 		return false;
 	}
 	_pRX[szRead] = '\0';
-	if (strcmp(_pRX, _OK) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -372,7 +372,7 @@ bool RN2483::TX(const void *ptr1, size_t sz1, const void *ptr2, size_t sz2)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strcmp(_pRX, _TXOK) != 0)
+	if (bcmp(_pRX, _TXOK) != 0)
 	{
 		return false;
 	}
@@ -394,7 +394,7 @@ size_t RN2483::RX(void *pDst, size_t szDst)
 		return 0;
 	}
 	_pRX[szRead] = '\0';
-	if (strcmp(_pRX, _OK) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return 0;
 	}
@@ -406,15 +406,15 @@ size_t RN2483::RX(void *pDst, size_t szDst)
 	_pRX[szRead] = '\0';
 
 	// if data is received
-	if (strncmp(_pRX, _RXR, sizeof(_RXR) - 1) == 0)
+	if (bcmp(_pRX, _RXR) == 0)
 	{
-		return _hex2d(
+		return H2D(
 			_pRX + sizeof(_RXR) - 1,
 			szRead - (sizeof(_RXR) - 1) - 2,
 			static_cast<char*>(pDst),
 			szDst);
 	}
-	else if (strncmp(_pRX, _RXE, sizeof(_RXE) - 1) == 0)
+	else if (bcmp(_pRX, _RXE) == 0)
 	{
 		return 0;
 	}
@@ -463,7 +463,7 @@ bool RN2483::SetMACResume()
 	}
 	_pRX[szRead] = '\0';
 	
-	if (strcmp(_pRX, _OK) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -486,7 +486,7 @@ bool RN2483::Reset()
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _RESET_ACK, sizeof(_RESET_ACK) - 1) != 0)
+	if (bcmp(_pRX, _RESET_ACK) != 0)
 	{
 		return false;
 	}
@@ -516,7 +516,7 @@ bool RN2483::SetMod(Mod modulation)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 	}
 
@@ -538,12 +538,12 @@ bool RN2483::GetMod(Mod *pModulation)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _GETMODFSK, sizeof(_GETMODFSK) - 1) == 0)
+	if (bcmp(_pRX, _GETMODFSK) == 0)
 	{
 		*pModulation = Mod::RNFSK;
 		return true;
 	}
-	else if (strncmp(_pRX, _GETMODLORA, sizeof(_GETMODLORA) - 1) == 0)
+	else if (bcmp(_pRX, _GETMODLORA) == 0)
 	{
 		*pModulation = Mod::RNLORA;
 		return true;
@@ -579,7 +579,7 @@ bool RN2483::SetFreq(unsigned int freq)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -638,7 +638,7 @@ bool RN2483::SetPower(char power)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -699,7 +699,7 @@ bool RN2483::SetBitRate(unsigned int rate)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -765,7 +765,7 @@ bool RN2483::SetDataShaping(DataShaping param)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -788,19 +788,19 @@ bool RN2483::GetDataShaping(DataShaping *pParam)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, "1.0", sizeof("1.0") - 1) == 0)
+	if (bcmp(_pRX, "1.0") == 0)
 	{
 		*pParam = RNDS1_0;
 	}
-	else if (strncmp(_pRX, "0.5", sizeof("0.5") - 1) == 0)
+	else if (bcmp(_pRX, "0.5") == 0)
 	{
 		*pParam = RNDS0_5;
 	}
-	else if (strncmp(_pRX, "0.3", sizeof("0.3") - 1) == 0)
+	else if (bcmp(_pRX, "0.3") == 0)
 	{
 		*pParam = RNDS0_3;
 	}
-	else if (strncmp(_pRX, "none", sizeof("none") - 1) == 0)
+	else if (bcmp(_pRX, "none") == 0)
 	{
 		*pParam = RNDSNone;
 	}
@@ -838,7 +838,7 @@ bool RN2483::SetPreambleLength(unsigned int length)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -896,7 +896,7 @@ bool RN2483::SetCRC(bool state)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 	}
 
@@ -918,12 +918,12 @@ bool RN2483::GetCRC(bool *pState)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, "on", sizeof("on") - 1) == 0)
+	if (bcmp(_pRX, "on") == 0)
 	{
 		*pState = true;
 		return true;
 	}
-	else if (strncmp(_pRX, "off", sizeof("off") - 1) == 0)
+	else if (bcmp(_pRX, "off") == 0)
 	{
 		*pState = false;
 		return true;
@@ -1034,7 +1034,7 @@ bool RN2483::SetRXBW(RXBandWidth param)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -1057,87 +1057,87 @@ bool RN2483::GetRXBW(RXBandWidth *pParam)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, "250", sizeof("250") - 1) == 0)
+	if (bcmp(_pRX, "250") == 0)
 	{
 	        *pParam = RNRXBW250;
 	}
-	else if (strncmp(_pRX, "125", sizeof("125") - 1) == 0)
+	else if (bcmp(_pRX, "125") == 0)
 	{
 	        *pParam = RNRXBW125;
 	}
-	else if (strncmp(_pRX, "62.5", sizeof("62.5") - 1) == 0)
+	else if (bcmp(_pRX, "62.5") == 0)
 	{
 	        *pParam = RNRXBW62_5;
 	}
-	else if (strncmp(_pRX, "31.3", sizeof("31.3") - 1) == 0)
+	else if (bcmp(_pRX, "31.3") == 0)
 	{
 	        *pParam = RNRXBW31_3;
 	}
-	else if (strncmp(_pRX, "15.6", sizeof("15.6") - 1) == 0)
+	else if (bcmp(_pRX, "15.6") == 0)
 	{
 	        *pParam = RNRXBW15_6;
 	}
-	else if (strncmp(_pRX, "7.8", sizeof("7.8") - 1) == 0)
+	else if (bcmp(_pRX, "7.8") == 0)
 	{
 	        *pParam = RNRXBW7_8;
 	}
-	else if (strncmp(_pRX, "3.9", sizeof("3.9") - 1) == 0)
+	else if (bcmp(_pRX, "3.9") == 0)
 	{
 	        *pParam = RNRXBW3_9;
 	}
-	else if (strncmp(_pRX, "200", sizeof("200") - 1) == 0)
+	else if (bcmp(_pRX, "200") == 0)
 	{
 	        *pParam = RNRXBW200;
 	}
-	else if (strncmp(_pRX, "100", sizeof("100") - 1) == 0)
+	else if (bcmp(_pRX, "100") == 0)
 	{
 	        *pParam = RNRXBW100;
 	}
-	else if (strncmp(_pRX, "50", sizeof("50") - 1) == 0)
+	else if (bcmp(_pRX, "50") == 0)
 	{
 	        *pParam = RNRXBW50;
 	}
-	else if (strncmp(_pRX, "25", sizeof("25") - 1) == 0)
+	else if (bcmp(_pRX, "25") == 0)
 	{
 	        *pParam = RNRXBW25;
 	}
-	else if (strncmp(_pRX, "12.5", sizeof("12.5") - 1) == 0)
+	else if (bcmp(_pRX, "12.5") == 0)
 	{
 	        *pParam = RNRXBW12_5;
 	}
-	else if (strncmp(_pRX, "6.3", sizeof("6.3") - 1) == 0)
+	else if (bcmp(_pRX, "6.3") == 0)
 	{
 	        *pParam = RNRXBW6_3;
 	}
-	else if (strncmp(_pRX, "3.1", sizeof("3.1") - 1) == 0)
+	else if (bcmp(_pRX, "3.1") == 0)
 	{
 	        *pParam = RNRXBW3_1;
 	}
-	else if (strncmp(_pRX, "166.7", sizeof("166.7") - 1) == 0)
+	else if (bcmp(_pRX, "166.7") == 0)
 	{
 	        *pParam = RNRXBW166_7;
 	}
-	else if (strncmp(_pRX, "83.3", sizeof("83.3") - 1) == 0)
+	else if (bcmp(_pRX, "83.3") == 0)
 	{
 	        *pParam = RNRXBW83_3;
 	}
-	else if (strncmp(_pRX, "41.7", sizeof("41.7") - 1) == 0)
+	else if (bcmp(_pRX, "41.7") == 0)
 	{
 	        *pParam = RNRXBW41_7;
 	}
-	else if (strncmp(_pRX, "20.8", sizeof("20.8") - 1) == 0)
+	else if (bcmp(_pRX, "20.8") == 0)
 	{
 	        *pParam = RNRXBW20_8;
 	}
-	else if (strncmp(_pRX, "10.4", sizeof("10.4") - 1) == 0)
+	else if (bcmp(_pRX, "10.4") == 0)
 	{
 	        *pParam = RNRXBW10_4;
 	}
-	else if (strncmp(_pRX, "5.2", sizeof("5.2") - 1) == 0)
+	else if (bcmp(_pRX, "5.2") == 0)
 	{
 	        *pParam = RNRXBW5_2;
 	}
-	else if (strncmp(_pRX, "2.6", sizeof("2.6") - 1) == 0)
+	else if (bcmp(_pRX, "2.6") == 0)
 	{
 	        *pParam = RNRXBW2_6;
 	}
@@ -1175,7 +1175,7 @@ bool RN2483::SetWDT(unsigned int timeOut)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -1237,7 +1237,7 @@ bool RN2483::SetSync(const char *pSync)
 	}
 	_pRX[szRead] = '\0';
 
-	if (strncmp(_pRX, _OK, sizeof(_OK) - 1) != 0)
+	if (bcmp(_pRX, _OK) != 0)
 	{
 		return false;
 	}
@@ -1269,37 +1269,6 @@ bool RN2483::GetSync(char *pSync, size_t szMax)
 	pSync[szRead - 2] = '\0';
 
 	return true;
-}
-
-size_t RN2483::_d2hex(const char *pIn, size_t szIn)
-{
-	if (szIn * 2 > _szBuf)
-	{
-		return 0;
-	}
-
-	short *ptr = reinterpret_cast<short*>(_pTX);
-	for (size_t i = 0; i < szIn; i++)
-	{
-		ptr[i] = RN_D2HEX[pIn[i]];
-	}
-
-	return szIn * 2;
-}
-
-size_t RN2483::_hex2d(const char *pIn, size_t szIn, char *pOut, size_t szOut)
-{
-	if (szIn / 2 + szIn % 2 > szOut)
-	{
-		return 0;
-	}
-
-	for (size_t i = 0; i < szIn; i += 2)
-	{
-		pOut[i / 2] = RN_HEX2D[pIn[i]] << 4 | RN_HEX2D[pIn[i + 1]];
-	}
-
-	return szIn / 2 + szIn % 2;
 }
 
 bool RN2483::_write(const char *ptr, size_t sz)

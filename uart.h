@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <termios.h>
 
-#include "translation.h"
+#include "tools.h"
 
 using namespace std;
 
